@@ -7,41 +7,8 @@ import {
   MapPin, Phone, Receipt, FileText, CheckCircle2, Building
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import api, { authApi, tenantApi, getImageUrl } from "@/lib/api";
 import PasswordInput from "@/components/ui/PasswordInput";
-
-const profileSchema = z.object({
-  name: z.string().min(1, "Full name is required"),
-  email: z.string().email("Invalid email address"),
-});
-type ProfileFormData = z.infer<typeof profileSchema>;
-
-const passwordSchema = z
-  .object({
-    currentPassword: z.string().min(1, "Current password is required"),
-    newPassword: z.string().min(8, "New password must be at least 8 characters"),
-    confirmPassword: z.string().min(8, "Confirm password must be at least 8 characters"),
-  })
-  .refine((data) => data.newPassword === data.confirmPassword, {
-    message: "New passwords do not match",
-    path: ["confirmPassword"],
-  });
-type PasswordFormData = z.infer<typeof passwordSchema>;
-
-const storeSettingsSchema = z.object({
-  name: z.string().min(1, "Store name is required"),
-  storeType: z.string(),
-  phone: z.string(),
-  address: z.string(),
-  city: z.string(),
-  receiptWidth: z.string(),
-  taxRate: z.number().min(0, "Tax rate must be >= 0"),
-  footerNote: z.string(),
-});
-type StoreSettingsFormData = z.infer<typeof storeSettingsSchema>;
 
 const STORE_TYPES = [
   { value: "clothing", label: "Clothing Store 👕" },
@@ -58,52 +25,47 @@ export default function TenantProfileSettingsPage() {
 
   const [activeTab, setActiveTab] = useState("profile");
   const [userRole, setUserRole] = useState("owner");
-  const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
   const [storeId, setStoreId] = useState<string | undefined>(undefined);
+  const [saving, setSaving] = useState(false);
+  const [savingStore, setSavingStore] = useState(false);
 
-  // Profile RHF
-  const {
-    register: registerProfile,
-    handleSubmit: handleSubmitProfile,
-    reset: resetProfile,
-    watch: watchProfile,
-    formState: { isSubmitting: isSavingProfile, errors: profileErrors },
-  } = useForm<ProfileFormData>({
-    resolver: zodResolver(profileSchema),
-    defaultValues: { name: "", email: "" },
+  const [profile, setProfile] = useState<{
+    name: string;
+    email: string;
+    avatarUrl: string | null;
+  }>({
+    name: "",
+    email: "",
+    avatarUrl: null,
   });
 
-  // Password RHF
-  const {
-    register: registerPassword,
-    handleSubmit: handleSubmitPassword,
-    reset: resetPassword,
-    formState: { isSubmitting: isSavingPassword, errors: passwordErrors },
-  } = useForm<PasswordFormData>({
-    resolver: zodResolver(passwordSchema),
-    defaultValues: { currentPassword: "", newPassword: "", confirmPassword: "" },
+  const [passwords, setPasswords] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
   });
 
-  // Store RHF
-  const {
-    register: registerStore,
-    handleSubmit: handleSubmitStore,
-    reset: resetStore,
-    formState: { isSubmitting: isSavingStore, errors: storeErrors },
-  } = useForm<StoreSettingsFormData>({
-    resolver: zodResolver(storeSettingsSchema),
-    defaultValues: {
-      name: "",
-      storeType: "clothing",
-      phone: "",
-      address: "",
-      city: "",
-      receiptWidth: "80mm",
-      footerNote: "Thank you for shopping with us!",
-      taxRate: 0,
-    },
+  const [activeStore, setActiveStore] = useState<{
+    name: string;
+    storeType: string;
+    phone: string;
+    address: string;
+    city: string;
+    receiptWidth: string;
+    taxRate: number;
+    footerNote: string;
+    storeCode?: string;
+  }>({
+    name: "",
+    storeType: "clothing",
+    phone: "",
+    address: "",
+    city: "",
+    receiptWidth: "80mm",
+    taxRate: 0,
+    footerNote: "Thank you for shopping with us!",
   });
 
   // Load User and Store Info
@@ -114,7 +76,7 @@ export default function TenantProfileSettingsPage() {
       if (storeList.length > 0) {
         const s = storeList[0];
         setStoreId(s._id);
-        resetStore({
+        setActiveStore({
           name: s.name || "",
           storeType: s.storeType || "clothing",
           phone: s.phone || "",
@@ -122,58 +84,69 @@ export default function TenantProfileSettingsPage() {
           city: s.city || "",
           receiptWidth: s.receiptWidth || "80mm",
           footerNote: s.footerNote || "Thank you for shopping with us!",
-          taxRate: s.taxRate || 0,
+          taxRate: s.taxRate ?? 0,
+          storeCode: s.storeCode || "",
         });
       }
     } catch (e) {
       console.error("Failed to load store:", e);
     }
-  }, [resetStore]);
+  }, []);
 
   useEffect(() => {
     const stored = localStorage.getItem("cityrock_user");
     if (!stored) { router.replace("/login"); return; }
     const user = JSON.parse(stored);
     setUserRole((user.role || "owner").toLowerCase());
-    setProfileAvatarUrl(user.avatarUrl || null);
-    resetProfile({
+    setProfile({
       name: user.name || "",
       email: user.email || "",
+      avatarUrl: user.avatarUrl || null,
     });
     setAvatarError(false);
     loadStoreData();
-  }, [router, loadStoreData, resetProfile]);
+  }, [router, loadStoreData]);
 
   // ── Profile Update ──
-  const onProfileUpdate = async (data: ProfileFormData) => {
+  const handleProfileUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profile.name.trim() || !profile.email.trim()) {
+      toast.error("Please fill in name and email");
+      return;
+    }
+    setSaving(true);
     try {
-      const res = await api.put("/auth/profile", { name: data.name.trim(), email: data.email.trim() });
+      const res = await api.put("/auth/profile", { name: profile.name.trim(), email: profile.email.trim() });
       toast.success(res.data.message || "Profile updated successfully!");
       const stored = JSON.parse(localStorage.getItem("cityrock_user") || "{}");
-      localStorage.setItem("cityrock_user", JSON.stringify({ ...stored, name: data.name.trim(), email: data.email.trim() }));
+      localStorage.setItem("cityrock_user", JSON.stringify({ ...stored, name: profile.name.trim(), email: profile.email.trim() }));
       window.dispatchEvent(new Event("storage"));
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
       toast.error(error.response?.data?.message || "Failed to update profile");
+    } finally {
+      setSaving(false);
     }
   };
 
   // ── Store Settings Update ──
-  const onStoreUpdate = async (data: StoreSettingsFormData) => {
+  const handleStoreUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!storeId) {
       toast.error("Store record not found");
       return;
     }
+    setSavingStore(true);
     try {
       await tenantApi.updateStore(storeId, {
-        name: data.name.trim(),
-        storeType: data.storeType,
-        phone: data.phone.trim(),
-        address: data.address.trim(),
-        city: data.city.trim(),
-        receiptWidth: data.receiptWidth,
-        footerNote: data.footerNote.trim(),
-        taxRate: data.taxRate || 0,
+        name: activeStore.name.trim(),
+        storeType: activeStore.storeType,
+        phone: activeStore.phone.trim(),
+        address: activeStore.address.trim(),
+        city: activeStore.city.trim(),
+        receiptWidth: activeStore.receiptWidth,
+        footerNote: activeStore.footerNote.trim(),
+        taxRate: activeStore.taxRate || 0,
       });
 
       toast.success("Store details and receipt settings updated!");
@@ -181,6 +154,8 @@ export default function TenantProfileSettingsPage() {
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
       toast.error(error.response?.data?.message || "Failed to update store settings");
+    } finally {
+      setSavingStore(false);
     }
   };
 
@@ -203,7 +178,7 @@ export default function TenantProfileSettingsPage() {
     try {
       const res = await authApi.uploadAvatar(formData);
       const newAvatarUrl = res.data?.data?.avatarUrl;
-      setProfileAvatarUrl(newAvatarUrl);
+      setProfile((prev) => ({ ...prev, avatarUrl: newAvatarUrl }));
       setAvatarError(false);
 
       const stored = JSON.parse(localStorage.getItem("cityrock_user") || "{}");
@@ -226,7 +201,7 @@ export default function TenantProfileSettingsPage() {
     setUploadingAvatar(true);
     try {
       await authApi.removeAvatar();
-      setProfileAvatarUrl(null);
+      setProfile((prev) => ({ ...prev, avatarUrl: null }));
       const stored = JSON.parse(localStorage.getItem("cityrock_user") || "{}");
       localStorage.setItem("cityrock_user", JSON.stringify({ ...stored, avatarUrl: null }));
       window.dispatchEvent(new Event("storage"));
@@ -239,17 +214,29 @@ export default function TenantProfileSettingsPage() {
     }
   };
 
-  const onPasswordChange = async (data: PasswordFormData) => {
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwords.newPassword.length < 8) {
+      toast.error("New password must be at least 8 characters");
+      return;
+    }
+    if (passwords.newPassword !== passwords.confirmPassword) {
+      toast.error("New passwords do not match");
+      return;
+    }
+    setSaving(true);
     try {
       const res = await api.put("/auth/change-password", { 
-        currentPassword: data.currentPassword, 
-        newPassword: data.newPassword 
+        currentPassword: passwords.currentPassword, 
+        newPassword: passwords.newPassword 
       });
       toast.success(res.data.message || "Password changed successfully");
-      resetPassword();
+      setPasswords({ currentPassword: "", newPassword: "", confirmPassword: "" });
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
       toast.error(error.response?.data?.message || "Failed to change password");
+    } finally {
+      setSaving(false);
     }
   };
 
