@@ -250,6 +250,7 @@ export default function TenantProfileSettingsPage() {
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
       toast.error(error.response?.data?.message || "Failed to change password");
+    }
   };
 
   const getInitials = (name?: string) => {
