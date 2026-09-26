@@ -1,0 +1,55 @@
+# Robots.txt for CityRock POS Cloud Platform
+# Optimized for Web & AI Search Engines (Google, Bing, ChatGPT, Perplexity, Claude, Copilot)
+
+User-agent: Googlebot
+Allow: /
+Disallow: /dashboard/
+Disallow: /admin/
+Disallow: /pos/
+
+User-agent: Bingbot
+Allow: /
+Disallow: /dashboard/
+Disallow: /admin/
+Disallow: /pos/
+
+# AI Search & Retrieval Bots
+User-agent: GPTBot
+Allow: /
+Disallow: /dashboard/
+Disallow: /admin/
+Disallow: /pos/
+
+User-agent: ChatGPT-User
+Allow: /
+Disallow: /dashboard/
+Disallow: /admin/
+Disallow: /pos/
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /dashboard/
+Disallow: /admin/
+Disallow: /pos/
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /dashboard/
+Disallow: /admin/
+Disallow: /pos/
+
+User-agent: Google-Extended
+Allow: /
+Disallow: /dashboard/
+Disallow: /admin/
+Disallow: /pos/
+
+# Default for all other crawlers
+User-agent: *
+Allow: /
+Disallow: /dashboard/
+Disallow: /admin/
+Disallow: /pos/
+Disallow: /api/
+
+Sitemap: https://cityrock.pk/sitemap.xml

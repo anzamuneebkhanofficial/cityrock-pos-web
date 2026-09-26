@@ -1,0 +1,18 @@
+# CityRock POS
+
+> High-performance cloud point-of-sale and multi-store inventory management platform for retail businesses.
+
+CityRock POS is an all-in-one retail management system built with Next.js and Express/MongoDB. It empowers retail shops, boutiques, grocery stores, and multi-branch chains to operate seamlessly online and offline.
+
+## Core Capabilities
+- Offline POS Cashier terminal with barcode scanner support (USB HID) and ESC/POS thermal receipt printing (80mm & 58mm).
+- Multi-store inventory sync with low-stock alerts, reorder thresholds, and variant SKU management (size, color).
+- Double-entry transaction history with automated PDF invoice and Excel export.
+- Role-Based Access Control: Super Admin, Platform Admin, Store Owner, Store Manager, and Cashier.
+- Multi-channel payment proof verification via direct bank transfer and mobile wallets (JazzCash, EasyPaisa, SadaPay, NayaPay).
+
+## Key Links
+- Main Platform: https://cityrock.pk
+- Pricing & Plans: https://cityrock.pk/pricing.md
+- Store Onboarding: https://cityrock.pk/signup
+- Contact Support: support@cityrock.pk
